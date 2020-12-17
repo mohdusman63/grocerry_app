@@ -180,34 +180,10 @@ catch(e){
   }
 })
 //*************** testing
-router.post('/Applymiddlewere',verifyJwt,(req,res)=>{
-  console.log(req.body)
 
-  let user=req.userData
-  console.log(user._id)
-  res.send( req.userData)
-
-})
 //*************unused send otp
-router.post('/sendOtp',async(req,res)=>{
-            try{
-               let get=await Vendor.findOne({_id:req.body.vendor_id})
-               console.log(get)
-               let phone=req.body.phone
-                if(get){
-                 let otp=Math.floor(1000+Math.random()*9000)
-                 //otp send your phone number
-                 let update=await Vendor.updateOne({$set:{otp:otp}})
-                   res.status(200).json({message:'otp updated'})
-                    }
-             else{
-               res.status(400).json({message:'wrong Entry'})
-                 }
-                  }
-          catch(e){
-             //console.log(e)
-            res.status(400).json({message:'something went wrong'}) }
-})
+
+  
 
 router.post('/verifyOtp',async(req,res)=>{
   try{
@@ -541,18 +517,7 @@ router.post('/addProduct',verifyJwt , upload.array('photos', 4),async(req,res)=>
 
 //catalogue catogry+product table
 
-// **** fetch product
-router.post('/fetchProduct',async(req,res)=>{
-         try{
-           let fetch=await Product.find({})
-           console.log(fetch)
-           res.send(fetch)
 
-         }
-         catch(e){
-
-         }
-})
 
 //catalogue inventory vendor_id product===>catogry id====>catogry name===>product name==>description
 //require jwt
@@ -932,18 +897,7 @@ router.post('/addProductVendor',verifyJwt,async(req,res)=>{
 
  })
 
-const verifyToken=(token,res)=>{
-try{
- var decoded = jwt.verify(token, process.env.PASSPORT_KEY);
-    return decoded
-}
-    catch(e){
-      //console.log(e)
-       res.status(404).json({"message":'invalid token '})
 
-
-    }
-  }
 
 const genrateToken=(user=>{
 let token= jwt.sign(user,process.env.PASSPORT_KEY)
