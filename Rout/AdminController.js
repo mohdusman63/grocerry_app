@@ -25,17 +25,29 @@ var upload  = multer({
 
 
 const router = express.Router();
-router.post('/adminSignup',(req,res)=>{
-     const v = new Validator(req.body, {
-    name:'required',
-    email: 'required|email',
-    password: 'required'
-  });
-    v.check().then((matched) => {
-    if (!matched) {
-      res.status(422).send(v.errors);
-    }
+router.post('/adminSignup',async(req,res)=>{
+    try{
+
+     let v=await new Validator(req.body,{
+           name:'required',
+           email:'required|email',
+          password:'required',
+         })
+       let check=await v.check()
+       let name=v.errors.name?v.errors.name.message:','
+       let email=v.errors.email?v.errors.email.message:','
+       let password=v.errors.password?v.errors.password.message:','
+        if(!check){
+           res.status(422).json({"message":name+email+password});
+         }
+
+
     else{
+        let checkduplicate=await Admin.findOne({email:req.body.email})
+        if(checkduplicate){
+            res.status(400).json({'statusCode':400,"message":"already register"})
+            return
+        }
         bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
             if(err) res.status(400).json({"message":"failed in encryption",err})
              const insertData=new Admin({
@@ -45,25 +57,35 @@ router.post('/adminSignup',(req,res)=>{
 
          })
           Admin.create(insertData)
-         .then(user=>res.status(200).json({"message":"Signup Sucessfully",user}))
-         .catch(err=>res.status(500).json({"message":"Internal Server error ",err}))
+         .then(user=>res.status(200).json({'statusCode':200,"message":"Signup Sucessfully",'user':user}))
+         .catch(err=>res.status(500).json({'statusCode':500,"message":"Internal Server error ",'error':err}))
 
           });
         }
-  });
+
+}
+  catch(e){
+
+
+   res.status(400).json({'statusCode':400,"message":"something went wrong"})
+  }
 });
 
-router.post('/adminLogin',(req,res)=>{
-    const v = new Validator(req.body, {
+router.post('/adminLogin',async(req,res)=>{
+    try{
+    const v = await new Validator(req.body, {
     email: 'required|email',
     password: 'required'
   });
-    v.check().then((matched) => {
-    if (!matched) {
-      res.status(422).send(v.errors);
-    }
+       let check=await v.check()
+       let email=v.errors.email?v.errors.email.message:','
+       let password=v.errors.password?v.errors.password.message:','
+
+    if(!check){
+           res.status(422).json({'statusCode':422,"message":email+password});
+         }
     else{
-        Admin.findOne({'email':req.body.email})
+       await Admin.findOne({'email':req.body.email})
         .then(user=>{
             // console.log(user.password) console.log(req.body.password)
             bcrypt.compare(req.body.password, user.password, function(err, result) {
@@ -71,18 +93,23 @@ router.post('/adminLogin',(req,res)=>{
                let token=jwt.sign(user.toJSON(),process.env.SECRET_KEY)
                let check=user.toJSON()
                check.token=token
-              res.status(200).json({"message":"login sucessfully","token":token})
+               res.status(200).json({'statusCode':200,"message":"login sucessfully","token":token})
                 }
                 else{
-                    res.status(400).json({"message":"login failed wrong password"})
+                    res.status(400).json({'statusCode':400,"message":"login failed wrong email or password"})
 
                 }
              });
         })
-        .catch(err=>res.status(400).json({"message":"email wrong",err}))
+        .catch(err=>res.status(400).json({'statusCode':400,"message":"login failed wrong email or password"}))
      }
+    }
+    catch(e){
+        res.status(400).json({'statusCode':400,"message":"something went wrong"})
+
+    }
    })
-})
+
 
 router.post('/activateDeactivate',async(req,res)=>{
     try{
@@ -124,20 +151,22 @@ router.post('/activateDeactivate',async(req,res)=>{
 
 })
 
-router.post('/listMerchant',async(req,res)=>{
+router.get('/listMerchant',async(req,res)=>{
     try{
     let get=await Vendor.aggregate([
         {$project:{
             name:1,
             email:1,
-            phone:1
+            phone:1,
+            status:1,
 
         }}
     ])
 
 res.status(200).json({
+    'statusCode':200,
     "total_vendor":get.length,
-    "venders_is ":get,
+    "venders_is":get,
 
 })
     }
@@ -296,5 +325,99 @@ router.post('/fetchProductAdmin',async(req,res)=>{
 
 })
 
+
+//delete vendor
+router.post('/deleteVendor',async(req,res)=>{
+    try{
+         let v=await new Validator(req.body,{
+          id:'required',
+         })
+          let check=await v.check()
+          let id=v.errors.id?v.errors.id.message:','
+           if(!check){
+           res.status(422).json({"statusCode":422,"message":id});
+         }
+         else{
+             let get=await Vendor.findOne({_id:req.body.id})
+            if(get){
+                let del=await Vendor.deleteOne({_id:req.body.id})
+                 res.status(200).json({'statusCode':200,'message':'deleted sucessfully'})
+            }
+            else{
+                res.status(404).json({'statusCode':404,'message':'no record found'})
+               }
+
+         }
+
+    }
+    catch(e){
+          res.status(400).json({'statusCode':400,'message':'something went wrong'})
+
+    }
+})
+
+router.post('/editVendor',async(req,res)=>{
+     try{
+         let v=await new Validator(req.body,{
+          id:'required',
+         })
+          let check=await v.check()
+          let id=v.errors.id?v.errors.id.message:','
+           if(!check){
+           res.status(422).json({"statusCode":422,"message":id});
+         }
+         else{
+             let id=req.body.id
+             let get=await Vendor.findOne({_id:id})
+            if(get){
+                 let update=await Vendor.updateOne({_id:id},{
+                     $set:{
+                         name:req.body.name,
+                         email:req.body.email,
+                         phone:req.body.phone,
+                         status:req.body.status,
+                     }
+                 })
+                 res.status(404).json({'statusCode':200,'message':'updated sucessfully'})
+            }
+            else{
+                res.status(404).json({'statusCode':404,'message':'no record found'})
+               } }
+        }
+         catch(e){
+               res.status(400).json({'statusCode':400,'message':'something went wrong'})
+
+         }
+
+})
+//get vendor details
+router.post('/getVendor',async(req,res)=>{
+     try{
+         let v=await new Validator(req.body,{
+          id:'required',
+         })
+          let check=await v.check()
+          let id=v.errors.id?v.errors.id.message:','
+           if(!check){
+           res.status(422).json({"statusCode":422,"message":id});
+         }
+         else{
+             let id=req.body.id
+             let get=await Vendor.findOne({_id:id})
+             if(get){
+                 res.status(200).json({'statusCode':200,'details':get})
+             }
+             else
+             res.status(404).json({'statusCode':404,'message':'no record found'})
+
+         }
+        }
+         catch(e){
+             console.log(e)
+              res.status(400).json({'statusCode':400,'message':'something went wrong'})
+
+         }
+
+})
 
 module.exports=router

@@ -179,6 +179,7 @@ catch(e){
 
   }
 })
+
 //*************** testing
 router.post('/Applymiddlewere',verifyJwt,(req,res)=>{
   console.log(req.body)
