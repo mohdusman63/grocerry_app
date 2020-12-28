@@ -23,7 +23,7 @@ module.exports=((req,res,next)=>{
 
     }
     catch(error){
-        // console.log(error)
+         console.log(error)
         res.status(404).json({
             'statusCode':404,
             'message':'invalid token'})

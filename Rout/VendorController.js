@@ -354,43 +354,12 @@ router.post('/vendorlogin',async(req,res)=>{
             console.log(result)
 
          if(result){
-           if(is_otp_verified==0 )
-           {
-              res.status(202).json({
-                'statusCode':202 ,
-                 'message':'login sucessfull but number is not verified plz redirect to verify otp',
-                 'user':get,
-                'token':tok,
-              })
-
-
-           }
-           else if(is_store_profile==0){
-              res.status(202).json({
-                'statusCode':202 ,
-                'message':'login sucessfull redirect to set up store',
-                'user':get,
-                'token':tok,})
-
-           }
-              else if(is_store_profile==1 && is_product_profile==0){
-              res.status(202).json({
-                'statusCode':202 ,
-                 'message':'login sucessfull redirect to add product or inventory setup ',
-                 'user':get,
-                'token':tok,})
-
-           }
-
-           else{
-
-           res.status(200).json({
+            res.status(200).json({
              'statusCode':200 ,
-              'message':'login sucessfull redirect to inventoryCatologue ',
+              'message':'login sucessfull  ',
              'user':get,
+             "token":tok,})
 
-            "token":tok,})
-           }
          }
          else{
            res.status(401).json({
@@ -469,6 +438,7 @@ router.post('/addProduct',verifyJwt , upload.array('photos', 4),async(req,res)=>
        }
        else{
 
+
         if(req.files.length>0){
          let image_array=[]
          for(let i=0;i<req.files.length;i++)
@@ -477,6 +447,25 @@ router.post('/addProduct',verifyJwt , upload.array('photos', 4),async(req,res)=>
                console.log(user._id)
                  let id=user._id
                  console.log(user.name)
+                 //is store create or not
+                  let checkVendor=await Vendor.findOne({_id:id})
+                 if(!checkVendor){
+                   res.status(404).json({
+                       'statusCode':404,
+                       'message':'vendor not exist '})
+                     return
+
+                 }
+
+                   let checkStore=await Store.find({_id:req.body.store_id})
+                   if(checkStore.length==0)
+                   {
+                      res.status(404).json({
+                       'statusCode':404,
+                       'message':'store id not exist '})
+                     return
+                   }
+
 
          //check duplicate value in product with same vendor id and product name
            let check=await Product.findOne({vendor_id:id,product_name:req.body.product_name})
@@ -484,9 +473,10 @@ router.post('/addProduct',verifyJwt , upload.array('photos', 4),async(req,res)=>
            if(check){
              res.status(201).json({
                'statusCode':201,
-                'message':'product are already exist'})
+                'message':'product name  are already exist'})
              return
              }
+
 
            const InsertData={
            catogry_id:req.body.catogry_id,
@@ -557,11 +547,13 @@ router.post('/fetchProduct',async(req,res)=>{
 
 //catalogue inventory vendor_id product===>catogry id====>catogry name===>product name==>description
 //require jwt
-router.post('/inventoryCatalogue',verifyJwt,async(req,res)=>{
+router.get('/inventoryCatalogue',verifyJwt,async(req,res)=>{
   try{
 
-           let user=req.userData,count=0
-          console.log(user._id)
+      //  const pagination=req.query.pagination?parseInt(req.query.pagination):3
+      //  const page=req.query.page?parseInt(req.query.page):1
+       let user=req.userData,count=0
+         // console.log(user._id,user.name)
          let user_id=user._id
            //check exist in vendor or not
            let found=await Vendor.findOne({_id:user_id})
@@ -576,7 +568,7 @@ router.post('/inventoryCatalogue',verifyJwt,async(req,res)=>{
               { $group: { _id: "$catogry_id"} },
 
                ])
-              // console.log(get)
+             //console.log(get)
                if(get.length>0){
                   let ids = get.map(obj=>obj['_id'])
            // console.log(ids)
@@ -585,47 +577,74 @@ router.post('/inventoryCatalogue',verifyJwt,async(req,res)=>{
 
                  //console.log(c)
            //get catogry_name from catogry table
-             //console.log(id)
+           console.log(id)
              let getCatName=await Catogry.findOne({_id:id})
              let cat_name=getCatName.catogry_name
-              // getProduct.push(cat_name)
+             // getProduct.push(cat_name)
 
               //  let getStore=await Product.find({vendor_id:user_id},{store_id:1})
               //  console.log(getStore)
               //  console.log('======>')
-              let checkAggregate=await Product.aggregate([
-                {$match:{catogry_id:id}},
-               {$lookup:{from:"stores",localField:"store_id",foreignField:"_id",as:"store"}},
+            //   let checkAggregate=await Product.aggregate([
+            //    // {$match:{catogry_id:id}},
+            //     {$match:{$and :[{catogry_id:id},{vendor_id:user_id}]}},
+            //     {$lookup:{from:"stores",localField:"store_id",foreignField:"_id",as:"store"}},
+            //     {$unwind:{path:'$store',preserveNullAndEmptyArrays:true}},
+            //     {$project:{
+
+            //         store_city:"$store.city",
+            //         store_logo:"$store.logo",
+            //         is_deliver:"$store.can_deliver",
+            //         has_inventory_management_system:"$store.has_inventory_management_system",
+            //         business_name:"$store.business_name"?"$store.business_name":' ',
+            //         business_email:"$store.business_email"?"$store.business_email":' ',
+            //          product_name:1,
+            //          description:1,
+            //         //  image_array:1,
+
+            //     }},
+            console.log('user id =====>' +user_id)
+
+            let check=await Product.aggregate([
+           {$match:{$and :[{catogry_id:mongoose.Types.ObjectId(id)},{vendor_id:mongoose.Types.ObjectId(user_id)}]}},
+              {$lookup:{from:"stores",localField:"store_id",foreignField:"_id",as:"store"}},
                {$unwind:{path:'$store',preserveNullAndEmptyArrays:true}},
                 {$project:{
+
                     store_city:"$store.city",
                     store_logo:"$store.logo",
                     is_deliver:"$store.can_deliver",
+                    has_inventory_management_system:"$store.has_inventory_management_system",
+                    business_name:"$store.business_name"?"$store.business_name":' ',
+                    business_email:"$store.business_email"?"$store.business_email":' ',
                      product_name:1,
                      description:1,
-                    //  image_array:1,
-
                 }}
 
-              ])
-             // console.log(checkAggregate)
+            ])
+            console.log(check)
+
+
+
+
+            //   ])
+            // console.log(checkAggregate)
               //get details of product table
           //  let product_deatails=await Product.find({catogry_id:id,vendor_id:user_id},{product_name:1,unit_price:1,   description:1,image_array:1,store_id:1})
-             //console.log(product_deatails)
+          //    console.log(product_deatails)
+
            getProduct.push(
            {
-           category_name:cat_name,
-          //  product:product_deatails,
-           product:checkAggregate,
-
-
-           }
-           )
+           catogry_name:cat_name,
+           product:check,
+           })
 
          }
          res.status(200).json({
             'statusCode':200,
-            'result':getProduct,
+            'vendor_name':user.name,
+            'result':getProduct
+
 
           })
 
@@ -927,6 +946,7 @@ router.post('/addProductVendor',verifyJwt,async(req,res)=>{
          }
        }
   catch(e){
+    console.log(e)
     res.status(400).json({'statusCode':400,'message':'something went wrong'})
 
             }
