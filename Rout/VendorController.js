@@ -149,12 +149,13 @@ router.post('/setupStore',verifyJwt , cpUpload,  async(req, res)=> {
             //update  vendor table that is_store_profile=1
           Store.create(InsertData)
           .then((async (user)=>{
-            //console.log(user)
+           // console.log(user)
             let update=await Vendor.updateOne({_id:id},{$set:{
-              is_store_profile:1
- 
+              is_store_profile:1,
+              store_id:user._id
+
             }})
-            //console.log(update)
+
 
 
           res.status(200).json({
@@ -183,8 +184,25 @@ catch(e){
 //*************** testing
 
 //*************unused send otp
-
-  
+router.post('/sendOtp',async(req,res)=>{
+            try{
+               let get=await Vendor.findOne({_id:req.body.vendor_id})
+               console.log(get)
+               let phone=req.body.phone
+                if(get){
+                 let otp=Math.floor(1000+Math.random()*9000)
+                 //otp send your phone number
+                 let update=await Vendor.updateOne({$set:{otp:otp}})
+                   res.status(200).json({message:'otp updated'})
+                    }
+             else{
+               res.status(400).json({message:'wrong Entry'})
+                 }
+                  }
+          catch(e){
+             //console.log(e)
+            res.status(400).json({message:'something went wrong'}) }
+})
 
 router.post('/verifyOtp',async(req,res)=>{
   try{
@@ -266,9 +284,7 @@ router.post('/VendorSignup',async(req,res)=>{
                   else{
                  Vendor.create(InsertData)
                  .then(user=>{
-                  //genrateToken(user.toJSON())
-                  //  const token1= genrateToken(user.toJSON())
-                  //  console.log(token1)
+
                 res.status(200).json({
                   'statusCode':200 ,
                   "message":"Signup Sucessfully" ,user_details:user})})
@@ -508,15 +524,26 @@ router.post('/addProduct',verifyJwt , upload.array('photos', 4),async(req,res)=>
 
 //catalogue catogry+product table
 
+// **** fetch product
+router.post('/fetchProduct',async(req,res)=>{
+         try{
+           let fetch=await Product.find({})
+           console.log(fetch)
+           res.send(fetch)
 
+         }
+         catch(e){
+
+         }
+})
 
 //catalogue inventory vendor_id product===>catogry id====>catogry name===>product name==>description
 //require jwt
 router.get('/inventoryCatalogue',verifyJwt,async(req,res)=>{
   try{
 
-      //  const pagination=req.query.pagination?parseInt(req.query.pagination):3
-      //  const page=req.query.page?parseInt(req.query.page):1
+       const page=req.query.pagination?parseInt(req.query.pagination):1
+       const limit=req.query.page?parseInt(req.query.page):3
        let user=req.userData,count=0
          // console.log(user._id,user.name)
          let user_id=user._id
@@ -540,69 +567,44 @@ router.get('/inventoryCatalogue',verifyJwt,async(req,res)=>{
               let getProduct=[]
                for(const id of ids){
 
-                 //console.log(c)
-           //get catogry_name from catogry table
+
            console.log(id)
              let getCatName=await Catogry.findOne({_id:id})
              let cat_name=getCatName.catogry_name
-             // getProduct.push(cat_name)
 
-              //  let getStore=await Product.find({vendor_id:user_id},{store_id:1})
-              //  console.log(getStore)
-              //  console.log('======>')
-            //   let checkAggregate=await Product.aggregate([
-            //    // {$match:{catogry_id:id}},
-            //     {$match:{$and :[{catogry_id:id},{vendor_id:user_id}]}},
-            //     {$lookup:{from:"stores",localField:"store_id",foreignField:"_id",as:"store"}},
-            //     {$unwind:{path:'$store',preserveNullAndEmptyArrays:true}},
-            //     {$project:{
 
-            //         store_city:"$store.city",
-            //         store_logo:"$store.logo",
-            //         is_deliver:"$store.can_deliver",
-            //         has_inventory_management_system:"$store.has_inventory_management_system",
-            //         business_name:"$store.business_name"?"$store.business_name":' ',
-            //         business_email:"$store.business_email"?"$store.business_email":' ',
-            //          product_name:1,
-            //          description:1,
-            //         //  image_array:1,
-
-            //     }},
             console.log('user id =====>' +user_id)
 
             let check=await Product.aggregate([
            {$match:{$and :[{catogry_id:mongoose.Types.ObjectId(id)},{vendor_id:mongoose.Types.ObjectId(user_id)}]}},
+          // { $sort: { _id: -1 } } ,
               {$lookup:{from:"stores",localField:"store_id",foreignField:"_id",as:"store"}},
                {$unwind:{path:'$store',preserveNullAndEmptyArrays:true}},
+
                 {$project:{
 
                     store_city:"$store.city",
                     store_logo:"$store.logo",
                     is_deliver:"$store.can_deliver",
                     has_inventory_management_system:"$store.has_inventory_management_system",
-                    business_name:"$store.business_name"?"$store.business_name":' ',
-                    business_email:"$store.business_email"?"$store.business_email":' ',
+                    business_name:"$store.business_name",
+                    business_email:"$store.business_email",
                      product_name:1,
                      description:1,
+                     discount:1,
+                     unit_price:1,
+                     image_array:1
                 }}
 
             ])
-            console.log(check)
 
-
-
-
-            //   ])
-            // console.log(checkAggregate)
-              //get details of product table
-          //  let product_deatails=await Product.find({catogry_id:id,vendor_id:user_id},{product_name:1,unit_price:1,   description:1,image_array:1,store_id:1})
-          //    console.log(product_deatails)
 
            getProduct.push(
            {
            catogry_name:cat_name,
            product:check,
            })
+           console.log(getProduct)
 
          }
          res.status(200).json({
@@ -630,9 +632,37 @@ router.get('/inventoryCatalogue',verifyJwt,async(req,res)=>{
             'statusCode':400,
             'message':'something went wrong'})
                 }
-                })
 
-router.post('/editStore',verifyJwt,cpUpload,async(req,res)=>{
+
+
+
+
+
+              })
+
+router.get('/getData',async(req,res)=>{
+  let vendor_id=req.body.vendor_id
+      let getData=await Catogry.aggregate([
+            {$lookup:
+                {from:"products",
+                    let: { catogry_id:"$catogry_id",store_id:"$store_id"},
+                  "pipeline":[
+
+                     {$match:{$and :[{"catogry_id":mongoose.Types.ObjectId("$$catogry_id")},{"vendor_id":mongoose.Types.ObjectId(vendor_id)}]}},
+                     { $project: { _id: 1 ,product_name:"$product_name",store_id:"$store_id" } },
+                      ],
+                    as:"details"
+                }},
+
+
+
+])
+res.json(getData)
+
+})
+
+
+router.get('/editStore',verifyJwt,cpUpload,async(req,res)=>{
   try{
     let v=new Validator(req.body,{
       store_id:'required'
@@ -705,7 +735,26 @@ router.post('/editStore',verifyJwt,cpUpload,async(req,res)=>{
 
   }
 })
+//pagination
+router.get('/paginate',async(req,res)=>{
+    try{
+      //localhost:3000/paginate?page=1&pagination=10
 
+      const page=req.query.page?parseInt(req.query.page):1
+         const limit=req.query.limit?parseInt(req.query.limit):2
+
+         const skip=(limit*page)-limit    //page-1*limit
+
+
+      console.log(`page size  is ${limit} skip  is ${skip}`)
+     const getProduct=await Product.find({}).skip(skip).limit(limit)
+    // console.log(getProduct)
+     res.json({'length':getProduct.length,'product':getProduct})
+    }
+    catch(e){
+
+    }
+})
 
 
 router.post('/changePassword',verifyJwt,async(req,res)=>{
@@ -812,37 +861,141 @@ router.post('/forgotPassword',async(req,res)=>{
 
 })
 
+router.post('/getStore',verifyJwt,async(req,res)=>{
+   try{
+    let v=new Validator(req.body,{
+        store_id:'required'
+    })
+    let check=await v.check()
+    let id=v.errors.store_id?v.errors.store_id.message:','
+    if(!check){
+      res.status(422).json({'statusCode':422,'message':id})
+    }
+    else{
+      console.log(req.body.store_id)
+      let findStore=await Store.findOne({_id:req.body.store_id})
+      console.log(findStore)
+      if(findStore){
+         res.status(200).json({'statusCode':200,'store':findStore})
+
+      }
+      else{
+        res.status(404).json({'statusCode':404,'message':'store id not exist'})
+      }
+
+    }
+
+  }
+  catch(e){
+    console.log(e)
+     res.status(404).json({'statusCode':400,'message':'something went wrong'})
+
+  }
+
+})
 
 router.post('/customerCatalogue',async(req,res)=>{
-  let get=await Product .aggregate([
+  try{
+  let get=await Product.aggregate([
 
    {$group:{_id:"$catogry_id"}},
 
 ])
+
 // get catogry id
-let ids=get.map(obj=>obj['_id'])
+ let ids=get.map(obj=>obj['_id'])
   //console.log(ids)
-let getProduct=[]
+  let getProduct=[]
   for(const id of ids){
-    //get catogry_name from catogry table
-    //console.log(id)
+
     let getCatName=await Catogry.findOne({_id:id})
     let cat_name=getCatName.catogry_name
-   // console.log(cat_name)
-    // getProduct.push(cat_name)
-    let get_data=await Product.find({catogry_id:id},{product_name:1,description:1,unit_price:1})
-    // getProduct.push(get_data)
-     getProduct.push({
-                    category_name:cat_name,
-                    product:get_data
-                })
+
+          let get=await Product.aggregate([
+            {$match:{catogry_id:mongoose.Types.ObjectId(id)}},
+            {$lookup:{from:"stores",localField:"store_id",foreignField:"_id",as:"store"}},
+             {$unwind:{path:'$store',preserveNullAndEmptyArrays:true}},
+            {$project:{
+                   store_city:"$store.city",
+                    store_logo:"$store.logo",
+                    is_deliver:"$store.can_deliver",
+                    has_inventory_management_system:"$store.has_inventory_management_system",
+                    business_name:"$store.business_name",
+                    business_email:"$store.business_email",
+                   store:"$store.logo",
+                    product_name:1,
+                    image_array:1,
+                    description:1,
+                    store_id:"$store._id",
+                    vendor_id:1
+                  }}])
+           getProduct.push({
+             catogry_name:cat_name,
+             product:get
+
+           })
 
 
   }
   res.status(200).json({
     'status_code':200,
-    'products are':getProduct})
+   'products':getProduct
+  })
+  }
+  catch(e){
+    console.log(e)
+  }
+})
 
+//serach api by name
+router.get('/findVendor/:name',async(req,res)=>{
+  try{
+    let name=req.params.name
+    console.log(name)
+    // let regex=new RegExp(name,'i')
+    await Vendor.find({name:{$regex:name,$options:'$i'}}).
+    then(result=>res.status(200).json({'statusCode':200,'result':result})).
+    catch(e=>res.status(500).json({'statusCode':500,'message':e.message}))
+
+  }
+  catch(e){
+    res.status(400).json({'statusCode':400,'message':'something went wrong'})
+
+
+  }
+
+})
+///serch for product name
+
+router.get('/getProductName/:product_name',verifyJwt,async(req,res)=>{
+  try{
+    let user_id=req.userData
+   let id=user_id._id
+   console.log(id)
+     let product_name=req.params.product_name
+
+       let get=await  Product.aggregate([
+       {$match:{$and:[
+       {vendor_id:mongoose.Types.ObjectId(id)},{product_name:{$regex:product_name,$options:'$i'}}
+
+    ]}}])
+    if(get.length>0){
+      let length=get.length
+       res.status(200).json({statusCode:200,'total_record':length,'result':get})
+
+    }
+    else{
+      res.status(404).json({statusCode:404,'message':'no record found'})
+
+    }
+
+
+
+  }
+  catch(e){
+    console.log(e)
+       res.status(400).json({'statusCode':400,'message':'something went wrong'})
+  }
 })
 
 //addd product from admin product //adminProductid,storeid,vendorid,unitprice,discount
