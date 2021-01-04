@@ -508,9 +508,10 @@ router.post('/addProduct',verifyJwt , upload.array('photos', 4),async(req,res)=>
       }
      }
       catch(e){
-       // console.log(e)
+       console.log(e)
          res.status(400).json({
           'statusCode':400,
+          'error':e,
           'message':'something went wrong',
            })
 
@@ -632,14 +633,10 @@ router.get('/inventoryCatalogue',verifyJwt,async(req,res)=>{
             'statusCode':400,
             'message':'something went wrong'})
                 }
+ })
 
 
-
-
-
-
-              })
-
+//aggregation pipeline
 router.get('/getData',async(req,res)=>{
   let vendor_id=req.body.vendor_id
       let getData=await Catogry.aggregate([
@@ -794,11 +791,7 @@ router.post('/changePassword',verifyJwt,async(req,res)=>{
                  'statusCode':200,
                 'mesaage':'updated successfully'})
                });
-
-
-
-
-            }
+               }
             else{
                res.status(400).json({
                  'statusCode':400,
@@ -947,14 +940,20 @@ router.post('/customerCatalogue',async(req,res)=>{
   }
 })
 
-//serach api by name
+//serach api by name qurry 
 router.get('/findVendor/:name',async(req,res)=>{
   try{
     let name=req.params.name
     console.log(name)
     // let regex=new RegExp(name,'i')
-    await Vendor.find({name:{$regex:name,$options:'$i'}}).
-    then(result=>res.status(200).json({'statusCode':200,'result':result})).
+    await Vendor.find({name:{$regex:name,$options:'$i'}},{name:1,email:1,phone:1,status:1}).
+    then((result)=>{
+      if(result.length>0)
+      res.status(200).json({'statusCode':200,'result':result})
+      else{
+       res.status(404).json({'statusCode':404,'message':'no record found'})
+      }
+    }).
     catch(e=>res.status(500).json({'statusCode':500,'message':e.message}))
 
   }
