@@ -24,9 +24,10 @@ var conn = mongoose.connection
 // const useRouter=require('../GROCCERYApp/Rout/user')
 
 
-  const Admin=require('./Rout/AdminController')
+const Admin=require('./Rout/AdminController')
 const Vendor=require('./Rout/VendorController')
 const Driver=require('./Rout/DriverController')
+const Customer=require('./Rout/CustomerController')
 app.use(express.static('image/upload'))
 app.use('/',Admin)
 app.use('/',Vendor)

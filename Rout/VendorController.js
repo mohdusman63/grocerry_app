@@ -1,5 +1,3 @@
-
-//639 pipe line
 require('dotenv').config()
 const express=require('express')
 const router = express.Router();
@@ -545,9 +543,8 @@ router.post('/fetchProduct',async(req,res)=>{
 router.get('/inventoryCatalogue',verifyJwt,async(req,res)=>{
   try{
 
-       const page=req.query.pagination?parseInt(req.query.pagination):1
-       const limit=req.query.page?parseInt(req.query.page):3
-       let user=req.userData,count=0
+
+       let user=req.userData
          // console.log(user._id,user.name)
          let user_id=user._id
            //check exist in vendor or not
@@ -561,6 +558,7 @@ router.get('/inventoryCatalogue',verifyJwt,async(req,res)=>{
              let get =await Product.aggregate([
               {$match:{ vendor_id : mongoose.Types.ObjectId(user_id)}},  //status:1
               { $group: { _id: "$catogry_id"} },
+               {$sort:{_id:-1}}
 
                ])
              //console.log(get)
@@ -661,14 +659,14 @@ res.json(getData)
 })
 
 
-router.get('/editStore',verifyJwt,cpUpload,async(req,res)=>{
+router.post('/editStore',verifyJwt,cpUpload,async(req,res)=>{
   try{
     let v=new Validator(req.body,{
-      store_id:'required'
-
-    })
+            store_id:'required',
+      })
     let check=await v.check()
-    let store_id=v.errors.store_id?v.errors.store_id.message:','
+       let store_id=v.errors.store_id?v.errors.store_id.message:','
+
 
     if(!check){
       res.status(422).json({
@@ -676,62 +674,51 @@ router.get('/editStore',verifyJwt,cpUpload,async(req,res)=>{
         'message':store_id})
     }
     else{
-         let user=req.userData
-         console.log(user._id)
-          let user_id=user._id
-          let found=await Vendor.findOne({_id:user_id})
+            //let check that which data comes
+             // console.log(req.body)
+              console.log('=============>')
+              let arr={}
+              let its=['company_type','gst_number','pan_number','has_inventory_management_system','business_name','business_email','business_phone',
+              'business_address1','business_catogry','can_deliver','is_merchandise_digital']
+              for(const iterator of its){
+                 if(req.body[iterator])
+                 arr[iterator]=req.body[iterator]
+
+                 }
+             let image=['logo','gst_image','pan_image']
+             for(const imageIt  of image){
+              if(req.files[imageIt]){
+                 let x=req.files[imageIt][0].filename
+                // console.log(imageIt,x)
+                 arr[imageIt]=x
+                 }
+                }
+                console.log(arr)
+           let user=req.userData
+           console.log(user._id)
+           let user_id=user._id
+           let found=await Vendor.findOne({_id:user_id})
             if(!found){
              res.status(404).json({'statusCode':404 ,'message':'no record found'})
              return
            }
+         let get=await Store.findOne({_id:req.body.store_id})
 
-
-          let get=await Store.findOne({_id:req.body.store_id})
-          console.log(get)
           if(get){
-             //empty the image field
-           let empty_image=await Store.updateOne({_id:req.body.store_id},{$set:{ logo:',,',gst_image:',,', pan_image:',,'}})
-            let logo=req.files['logo'][0].filename
-           let gst_image=req.files['gst_image'][0].filename
-           let pan_image=req.files['pan_image'][0].filename
-           let update=await Store.updateOne({$set:{
-            vandor_id:req.body.vandor_id,
-            logo:logo,
-            business_name:req.body.business_name,
-            business_email:req.body. business_email,
-            business_address1:req.body.business_address1,
-            business_address2:req.body.business_address2,
-            city:req.body.city,
-            state:req.body.state,
-            zip:req.body.zip,
-            country:req.body.country,
-            company_type:req.body.company_type,
-            business_catogry:req.body.business_catogry,
-            can_driver:req.body.can_driver,    //1 or 0
-            is_merchandise_digital:req.body.is_merchandise_digital,  //1 or 0
-            has_inventory_management_system:req.body. has_inventory_management_system,  //1 or 0
-            gst_number:req.body.gst_number,
-            gst_image:gst_image,
-            pan_number:req.body.pan_number,
-            pan_image:pan_image,
-          }
-
-          })
-          res.status(200).json({'statusCode':200,'message':'updated Sucessfully'})
-
-
+            console.log(get)
+          let update=await Store.updateOne({_id:req.body.store_id},{$set:arr})
+          console.log(update)
+          let updateData=await Store.findOne({_id:req.body.store_id})
+          res.status(200).json({'statusCode':200,'message':'updated Sucessfully','updated store is':updateData})
         }
          else{
-              res.status(200).json({'statusCode':404,'message':'no store found'})
+              res.status(404).json({'statusCode':404,'message':'no store found'})
           }
-      }
+        }
     }
-
-
-
-  catch(e){
-    res.status(400).json({'statusCode':400,"message":"something went wrong"})
-
+    catch(e){
+    console.log(e)
+    res.status(400).json({'statusCode':400,"message":"something went wrong",'error':e})
   }
 })
 //pagination
@@ -778,9 +765,10 @@ router.post('/changePassword',verifyJwt,async(req,res)=>{
          //check vendor is exist or not
          let get=await Vendor.findOne({_id:id})
          console.log(get)
-         let getPassword=get.password
-         console.log(getPassword)
+         //let getPassword=get.password
+        // console.log(getPassword)
          if(get){
+           let getPassword=get.password
            //check old password is matched or not
            bcrypt.compare(req.body.old_password, getPassword, async function(err, result) {
             console.log(result)
@@ -889,60 +877,9 @@ router.post('/getStore',verifyJwt,async(req,res)=>{
 
 })
 
-router.post('/customerCatalogue',async(req,res)=>{
-  try{
-  let get=await Product.aggregate([
-
-   {$group:{_id:"$catogry_id"}},
-
-])
-
-// get catogry id
- let ids=get.map(obj=>obj['_id'])
-  //console.log(ids)
-  let getProduct=[]
-  for(const id of ids){
-
-    let getCatName=await Catogry.findOne({_id:id})
-    let cat_name=getCatName.catogry_name
-
-          let get=await Product.aggregate([
-            {$match:{catogry_id:mongoose.Types.ObjectId(id)}},
-            {$lookup:{from:"stores",localField:"store_id",foreignField:"_id",as:"store"}},
-             {$unwind:{path:'$store',preserveNullAndEmptyArrays:true}},
-            {$project:{
-                   store_city:"$store.city",
-                    store_logo:"$store.logo",
-                    is_deliver:"$store.can_deliver",
-                    has_inventory_management_system:"$store.has_inventory_management_system",
-                    business_name:"$store.business_name",
-                    business_email:"$store.business_email",
-                   store:"$store.logo",
-                    product_name:1,
-                    image_array:1,
-                    description:1,
-                    store_id:"$store._id",
-                    vendor_id:1
-                  }}])
-           getProduct.push({
-             catogry_name:cat_name,
-             product:get
-
-           })
 
 
-  }
-  res.status(200).json({
-    'status_code':200,
-   'products':getProduct
-  })
-  }
-  catch(e){
-    console.log(e)
-  }
-})
-
-//serach api by name qurry 
+//serach api by name qurry
 router.get('/findVendor/:name',async(req,res)=>{
   try{
     let name=req.params.name
