@@ -344,6 +344,7 @@ async function updateBatsman(player_id, four, six, ballPlayed, res) {
   return true;
 }
 
+//create scorecard of 3 players
 router.post("/scoreboard", async (req, res) => {
   try {
     //console.log(req.body.batsman.length);
@@ -360,18 +361,25 @@ router.post("/scoreboard", async (req, res) => {
       });
     }
     console.log(arr[0].id);
-    //   res.json(arr);
-    //to check the whether the player is present in scorebord or not
+
     let count = 0;
     let get = await ScoreCard.findOne({ match_id: req.body.match_id }); //match id =.....
-
-    if (get.batsman.length === 2) {
-      // console.log(get.batsman.length);
+    // console.log(get.batsman.length);
+    if (get) {
+      //
       // if length is 2 then not need to insert update it
       for (const id of ids) {
         let fours, sixe, played_balls;
         //fetched the batsman
         let p = await Player.findOne({ _id: id });
+        if (!p) {
+          console.log("player not found");
+          res.status(400).json({
+            statusCode: 400,
+            message: "player not found",
+          });
+          return;
+        }
         fours = arr[count].four; //req.body
         sixe = arr[count].six; //req.body
         played_balls = arr[count].played_ball;
@@ -391,14 +399,14 @@ router.post("/scoreboard", async (req, res) => {
             },
           }
         );
-        res.status(200).json({
-          statusCode: 200,
-          message: "updated sucessfully",
-        });
+        console.log("updated");
       }
+      res.status(200).json({
+        statusCode: 200,
+        message: "updated sucessfully",
+      });
     } else {
-      //create
-
+      //create scorecard
       const insertData = {
         match_id: req.body.match_id,
         batsman: req.body.batsman,
@@ -406,13 +414,15 @@ router.post("/scoreboard", async (req, res) => {
         over_details: req.body.over_details,
       };
 
-      console.log(insertData);
+      //console.log(insertData);
       ScoreCard.create(insertData)
         .then((data) => {
-          console.log(data);
-          res
-            .status(200)
-            .json({ statusCode: 200, message: "score added", "data is": data });
+          // console.log(data);
+          res.status(200).json({
+            statusCode: 200,
+            message: "scorecard created",
+            "data is": data,
+          });
         })
         .catch((e) => {
           console.log(e.message);
@@ -425,10 +435,10 @@ router.post("/scoreboard", async (req, res) => {
     }
   } catch (e) {
     console.log(e);
-    // res.status(400).json({
-    //   statusCode: 400,
-    //   message: "something went wrong",
-    // });
+    res.status(400).json({
+      statusCode: 400,
+      message: "something went wrong",
+    });
   }
 });
 
@@ -436,40 +446,132 @@ router.post("/scoreboard", async (req, res) => {
 
 router.post("/addDeletedPlayer", async (req, res) => {
   try {
-    console.log(req.body.match_id);
-    let get = await ScoreCard.updateOne(
-      { match_id: req.body.match_id },
-      {
-        $push: {
-          batsman: {
-            player_id: req.body.player_id,
-            four: req.body.four,
-            six: req.body.six,
-            played_ball: req.body.played_ball,
-          },
-        },
+    let v = await new Validator(req.body, {
+      match_id: "required",
+      player_id: "required",
+    });
+    let check = await v.check();
+    let match_id = v.errors.match_id ? v.errors.match_id.message : ",";
+    let player_id = v.errors.player_id ? v.errors.player_id.message : ",";
+    if (!check) {
+      res.status(422).json({
+        statusCode: 422,
+        message: match_id + player_id,
+      });
+    } else {
+      let checkMatch = await ScoreCard.findOne({ match_id: req.body.match_id });
+      console.log(checkMatch);
+      if (!checkMatch) {
+        res.status(400).json({
+          statusCode: 400,
+          message: "match not exists",
+        });
+        return;
       }
-    );
-    console.log(get);
-  } catch (e) {}
+
+      ScoreCard.updateOne(
+        { match_id: req.body.match_id },
+        {
+          $push: {
+            batsman: {
+              player_id: req.body.player_id,
+              four: req.body.four,
+              six: req.body.six,
+              played_ball: req.body.played_ball,
+            },
+          },
+        }
+      )
+        .then((data) =>
+          res.status(200).json({
+            statusCode: 200,
+            message: "player added in scorecard",
+          })
+        )
+        .catch((e) => {
+          console.log(e.message);
+          res.status(500).json({
+            statusCode: 500,
+            message: "db error",
+            error: e.message,
+          });
+        });
+    }
+  } catch (e) {
+    console.log(e);
+    res.status(400).json({
+      statusCode: 400,
+      message: "something went wrong",
+    });
+  }
 });
 
-//delete a nested documnets using pull
+//on the condition of out delete a nested documnets using pull
 router.post("/deletePlayer", async (req, res) => {
   try {
-    console.log(req.body);
-    let u = await ScoreCard.updateOne(
-      { match_id: req.body.match_id },
-      {
-        $pull: {
+    let v = await new Validator(req.body, {
+      match_id: "required",
+      player_id: "required",
+    });
+    let check = await v.check();
+    let match_id = v.errors.match_id ? v.errors.match_id.message : ",";
+    let player_id = v.errors.player_id ? v.errors.player_id.message : ",";
+    if (!check) {
+      res.status(422).json({
+        statusCode: 422,
+        message: match_id + player_id,
+      });
+    } else {
+      //to check  match exist or not
+      let get = await ScoreCard.findOne(
+        { match_id: req.body.match_id },
+        {
           batsman: {
-            player_id: req.body.player_id,
+            $elemMatch: {
+              player_id: mongoose.Types.ObjectId(req.body.player_id),
+            },
           },
-        },
+        }
+      );
+      if (!get) {
+        res.status(400).json({
+          statusCode: 400,
+          message: "no match exists",
+        });
+        return;
       }
-      //  { multi: true}          //multiple value
-    );
-    console.log(u);
-  } catch (e) {}
+      //perform delete if batsman exist
+      if (get && get.batsman.length > 0) {
+        let u = await ScoreCard.updateOne(
+          { match_id: req.body.match_id },
+          {
+            $pull: {
+              batsman: {
+                player_id: req.body.player_id,
+              },
+            },
+          }
+        );
+        res.status(200).json({
+          statusCode: 200,
+          message: "deleted sucessfully",
+        });
+      }
+      // player not exist
+      else {
+        res.status(400).json({
+          statusCode: 400,
+          message: "no player exist",
+        });
+      }
+    }
+  } catch (e) {
+    console.log(e);
+    res.status(400).json({
+      statusCode: 400,
+      message: "something went wrong",
+    });
+  }
 });
+
 module.exports = router;
